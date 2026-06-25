@@ -1,0 +1,18 @@
+[package]
+name = "pita"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "pita"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "pita-cli"
+path = "src/main.rs"
+
+[dependencies]
+zstd = { version = "0.13", default-features = false }
+
+[build-dependencies]
+cbindgen = "0.27"

@@ -1,0 +1,89 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        include:
+          - os: windows-latest
+            artifact-suffix: windows-x64
+            lib-glob: |
+              target/release/pita.dll
+              target/release/pita.dll.lib
+              target/release/pita.lib
+              target/release/pita-cli.exe
+              pita.h
+          - os: ubuntu-latest
+            artifact-suffix: linux-x64
+            lib-glob: |
+              target/release/libpita.so
+              target/release/libpita.a
+              target/release/pita-cli
+              pita.h
+          - os: macos-latest
+            artifact-suffix: macos-x64
+            lib-glob: |
+              target/release/libpita.dylib
+              target/release/libpita.a
+              target/release/pita-cli
+              pita.h
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pita-${{ matrix.artifact-suffix }}
+          path: ${{ matrix.lib-glob }}
+          compression-level: 0
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: pita-*
+          path: artifacts
+
+      - name: Install zip
+        run: sudo apt-get update && sudo apt-get install zip -y
+
+      - name: Package
+        run: |
+          mkdir -p release
+          cd artifacts
+          for dir in pita-*/; do
+            platform="$(basename "$dir")"
+            cd "$dir"
+            zip -j "$GITHUB_WORKSPACE/release/${platform}.zip" ./*
+            cd "$OLDPWD"
+          done
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
