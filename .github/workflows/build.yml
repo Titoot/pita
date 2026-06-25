@@ -14,29 +14,6 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
-        include:
-          - os: windows-latest
-            artifact-suffix: windows-x64
-            lib-glob: |
-              target/release/pita.dll
-              target/release/pita.dll.lib
-              target/release/pita.lib
-              target/release/pita-cli.exe
-              pita.h
-          - os: ubuntu-latest
-            artifact-suffix: linux-x64
-            lib-glob: |
-              target/release/libpita.so
-              target/release/libpita.a
-              target/release/pita-cli
-              pita.h
-          - os: macos-latest
-            artifact-suffix: macos-x64
-            lib-glob: |
-              target/release/libpita.dylib
-              target/release/libpita.a
-              target/release/pita-cli
-              pita.h
 
     runs-on: ${{ matrix.os }}
 
@@ -49,11 +26,35 @@ jobs:
       - name: Build
         run: cargo build --release
 
+      - name: Stage artifacts
+        shell: bash
+        run: |
+          mkdir -p staging
+          cp pita.h staging/
+          case "${{ matrix.os }}" in
+            windows-latest)
+              cp target/release/pita.dll staging/
+              cp target/release/pita.dll.lib staging/
+              cp target/release/pita.lib staging/
+              cp target/release/pita-cli.exe staging/
+              ;;
+            ubuntu-latest)
+              cp target/release/libpita.so staging/
+              cp target/release/libpita.a staging/
+              cp target/release/pita-cli staging/
+              ;;
+            macos-latest)
+              cp target/release/libpita.dylib staging/
+              cp target/release/libpita.a staging/
+              cp target/release/pita-cli staging/
+              ;;
+          esac
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pita-${{ matrix.artifact-suffix }}
-          path: ${{ matrix.lib-glob }}
+          name: pita-${{ matrix.os == 'windows-latest' && 'windows-x64' || matrix.os == 'ubuntu-latest' && 'linux-x64' || 'macos-x64' }}
+          path: staging/
           compression-level: 0
 
   release:
@@ -75,13 +76,12 @@ jobs:
       - name: Package
         run: |
           mkdir -p release
-          cd artifacts
-          for dir in pita-*/; do
+          for dir in artifacts/pita-*/; do
+            [ -d "$dir" ] || continue
             platform="$(basename "$dir")"
-            cd "$dir"
-            zip -j "$GITHUB_WORKSPACE/release/${platform}.zip" ./*
-            cd "$OLDPWD"
+            (cd "$dir" && zip -j "$GITHUB_WORKSPACE/release/${platform}.zip" ./*)
           done
+          ls -la release/
 
       - name: Create release
         uses: softprops/action-gh-release@v2
