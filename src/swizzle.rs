@@ -5,12 +5,14 @@ const BLK_PX: u32 = 4;
 const GOB_HEIGHT: u32 = 8;
 
 pub fn detect_gob_blocks_y(_wb: u32, hb: u32) -> u32 {
-    let hb_in_gobs = hb.div_ceil(8);
-    let mut gby = 1u32;
-    while gby < hb_in_gobs && gby < 16 {
-        gby <<= 1;
+    // https://github.com/ScanMountGoat/tegra_swizzle/blob/main/src/blockheight.rs
+    match hb + (hb / 2) {
+        h if h >= 128 => 16,
+        h if h >= 64 => 8,
+        h if h >= 32 => 4,
+        h if h >= 16 => 2,
+        _ => 1,
     }
-    gby
 }
 
 pub fn compute_width_in_gobs(wb: u32, bpb: u32) -> u32 {
